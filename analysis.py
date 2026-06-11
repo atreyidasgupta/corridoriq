@@ -11,7 +11,19 @@ load_dotenv()
 
 # initialize GEE once at module level — not inside functions
 # so it doesn't reinitialize on every API call
-ee.Initialize(project='satsuredemo')
+import json
+
+service_account_json = os.environ.get("GEE_SERVICE_ACCOUNT_JSON")
+if service_account_json:
+    credentials = ee.ServiceAccountCredentials(
+        email=json.loads(service_account_json)["client_email"],
+        key_data=service_account_json
+    )
+    ee.Initialize(credentials, project='satsuredemo')
+    print("GEE initialized with service account")
+else:
+    ee.Initialize(project='satsuredemo')
+    print("GEE initialized with local credentials")
 
 # ─── STEP 1: REAL GIS DATA FROM OPENSTREETMAP ─────────────────────────────
 
@@ -266,7 +278,7 @@ def get_phenology_curve(lat, lon):
     - Agricultural area = two NDVI peaks (kharif + rabi crop cycles)
     - Urban area = flat low NDVI year-round
     - Construction site = sudden NDVI drop at start of works
-    
+
     """
     print("Computing phenology curve (monthly NDVI 2024-2025)...")
 
