@@ -103,11 +103,7 @@ def history():
     # and get the latest analysis ID for loading the map
 
 # ─── START ────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     init_db()
-    # creates SQLite tables if they don't exist
-    # safe to run every time — CREATE TABLE IF NOT EXISTS
-
-   port = int(os.environ.get("PORT", 5000))
-   app.run(host="0.0.0.0", port=port, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
