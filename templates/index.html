@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CorridorIQ — Infrastructure Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <!-- Chart.js loaded from CDN — no install needed -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg: #0a0e1a;
+            --surface: #111828;
+            --border: #1e2d45;
+            --accent: #3b82f6;
+            --green: #10b981;
+            --amber: #f59e0b;
+            --red: #ef4444;
+            --text: #e2e8f0;
+            --muted: #64748b;
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+        }
+
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 18px;
+            color: #fff;
+        }
+        .logo span { color: var(--accent); }
+        .tagline {
+            font-size: 12px;
+            color: var(--muted);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 40px;
+        }
+
+        .search-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 32px;
+        }
+        .search-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .search-sub {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .search-row {
+            display: flex;
+            gap: 12px;
+        }
+        .search-input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 15px;
+            font-family: 'DM Sans', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus { border-color: var(--accent); }
+        .search-input::placeholder { color: var(--muted); }
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        .loading.active { display: flex; }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .results { display: none; }
+        .results.active { display: block; }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'IBM Plex Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1;
+        }
+        .metric-unit {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .risk-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .risk-Low { background: rgba(16,185,129,0.15); color: var(--green); }
+        .risk-Medium { background: rgba(245,158,11,0.15); color: var(--amber); }
+        .risk-High { background: rgba(239,68,68,0.15); color: var(--red); }
+
+        .main-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panel-badge {
+            font-size: 10px;
+            background: rgba(34,211,238,0.1);
+            border: 1px solid rgba(34,211,238,0.2);
+            color: #22d3ee;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+        }
+        .map-frame {
+            width: 100%;
+            height: 380px;
+            border: none;
+        }
+        .briefing-content {
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.75;
+            color: #94a3b8;
+            height: 380px;
+            overflow-y: auto;
+        }
+
+        /* ── PHENOLOGY PANEL ── */
+        .phenology-row {
+            margin-bottom: 24px;
+        }
+        .phenology-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .phenology-body {
+            padding: 20px 24px;
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 24px;
+            align-items: start;
+        }
+        .chart-container {
+            position: relative;
+            height: 240px;
+        }
+        .phenology-legend {
+            padding-top: 8px;
+        }
+        .phenology-legend h4 {
+            font-size: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+        .legend-text {
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .legend-text strong {
+            color: var(--text);
+            display: block;
+            font-size: 12px;
+        }
+        .phenology-interpretation {
+            margin-top: 16px;
+            background: rgba(59,130,246,0.06);
+            border: 1px solid rgba(59,130,246,0.15);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .phenology-interpretation .interp-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        #phenologyInterpText {
+            color: var(--text);
+            font-size: 13px;
+        }
+        .no-phenology {
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* ── HISTORY TABLE ── */
+        .history-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .history-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            text-align: left;
+            padding: 10px 20px;
+            color: var(--muted);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            color: #94a3b8;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .view-btn {
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.2);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">Corridor<span>IQ</span></div>
+    <div class="tagline">🛰️ Geospatial Infrastructure Intelligence</div>
+</div>
+
+<div class="container">
+
+    <!-- SEARCH -->
+    <div class="search-section">
+        <div class="search-title">Analyse an Infrastructure Corridor</div>
+        <div class="search-sub">
+            Enter any Indian city or corridor — e.g. "Bengaluru", "Delhi", "Pune"
+        </div>
+        <div class="search-row">
+            <input 
+                type="text" 
+                class="search-input" 
+                id="cityInput"
+                placeholder="e.g. Bengaluru, Karnataka, India"
+            >
+            <button class="btn" id="analyzeBtn" onclick="runAnalysis()">
+                Analyse
+            </button>
+        </div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <span id="loadingText">Fetching GIS data from OpenStreetMap...</span>
+        </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results" id="results">
+
+        <!-- METRICS ROW -->
+        <div class="metrics-row">
+            <div class="metric-card">
+                <div class="metric-label">Total Road Network</div>
+                <div class="metric-value" id="roadKm">--</div>
+                <div class="metric-unit">kilometers</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Building Footprints</div>
+                <div class="metric-value" id="buildingCount">--</div>
+                <div class="metric-unit">structures detected</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Green Cover (NDVI)</div>
+                <div class="metric-value" id="greenCover">--</div>
+                <div class="metric-unit">% Sentinel-2 2025</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Risk Level</div>
+                <div class="metric-value" id="riskScore">--</div>
+                <div class="metric-unit" id="riskLabel">--</div>
+            </div>
+        </div>
+
+        <!-- MAP + BRIEFING -->
+        <div class="main-row">
+            <div class="panel">
+                <div class="panel-header">
+                    🗺️ Geospatial Map
+                    <span class="panel-badge">SENTINEL-2 + OSM</span>
+                </div>
+                <iframe class="map-frame" id="mapFrame" src="about:blank"></iframe>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    🤖 AI Analyst Briefing
+                    <span class="panel-badge">GROQ LLAMA 3.3</span>
+                </div>
+                <div class="briefing-content" id="briefingContent"></div>
+            </div>
+        </div>
+
+        <!-- PHENOLOGY CURVE — full width row -->
+        <div class="phenology-row">
+            <div class="phenology-panel">
+                <div class="panel-header">
+                    📈 Phenology Curve — Monthly NDVI 2024–2025
+                    <span class="panel-badge">SENTINEL-2 VIA GEE</span>
+                </div>
+                <div id="phenologyBody" class="phenology-body">
+                    <div class="chart-container">
+                        <canvas id="phenologyChart"></canvas>
+                        <!-- Chart.js renders into this canvas element -->
+                    </div>
+                    <div class="phenology-legend">
+                        <h4>How to read this</h4>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#10b981"></div>
+                            <div class="legend-text">
+                                <strong>Two peaks (kharif + rabi)</strong>
+                                Active agricultural land. Sage uses this pattern to detect crop cycles, estimate planting dates, and time collections.
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#64748b"></div>
+                            <div class="legend-text">
+                                <strong>Flat low NDVI</strong>
+                                Predominantly urban or built-up. Minimal seasonal vegetation. Typical for dense city corridors.
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#ef4444"></div>
+                            <div class="legend-text">
+                                <strong>Sudden drop mid-curve</strong>
+                                Vegetation clearance event — likely construction start or deforestation. Corroborates change detection layer.
+                            </div>
+                        </div>
+                        <div class="phenology-interpretation">
+                            <div class="interp-label">Interpretation</div>
+                            <div id="phenologyInterpText">Running analysis...</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="phenologyEmpty" class="no-phenology" style="display:none">
+                    No phenology data available for this location.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- HISTORY TABLE -->
+    <div class="history-section">
+        <div class="history-header">📊 Past Analyses</div>
+        <div id="historyContainer">
+            {% if analyses %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>City</th>
+                        <th>Timestamp</th>
+                        <th>Road (km)</th>
+                        <th>Buildings</th>
+                        <th>Risk</th>
+                        <th>Map</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in analyses %}
+                    <tr>
+                        <td>{{ analysis.city }}</td>
+                        <td>{{ analysis.timestamp }}</td>
+                        <td>{{ analysis.total_road_km }}</td>
+                        <td>{{ analysis.building_count }}</td>
+                        <td>
+                            <span class="risk-badge risk-{{ analysis.risk_label }}">
+                                {{ analysis.risk_label }}
+                            </span>
+                        </td>
+                        <td>
+                            <button 
+                                class="view-btn"
+                                data-analysis-id="{{ analysis.id }}"
+                                onclick="loadMap(this.dataset.analysisId)">
+                                View Map
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                No analyses yet — run your first corridor analysis above
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+let currentAnalysisId = null;
+
+const loadingMessages = [
+    "Fetching GIS data from OpenStreetMap...",
+    "Running parallel GEE analysis — NDVI + change detection + phenology...",
+    "Computing Sentinel-2 vegetation indices...",
+    "Building phenology curve (monthly NDVI 2024-2025)...",
+    "Generating AI analyst briefing with Groq...",
+    "Building interactive Folium map..."
+];
+
+async function runAnalysis() {
+    const city = document.getElementById("cityInput").value.trim();
+    
+    if (!city) {
+        alert("Please enter a city name");
+        return;
+    }
+
+    document.getElementById("analyzeBtn").disabled = true;
+    document.getElementById("loading").classList.add("active");
+    document.getElementById("results").classList.remove("active");
+    
+    let msgIndex = 0;
+    const msgInterval = setInterval(() => {
+        msgIndex = (msgIndex + 1) % loadingMessages.length;
+        document.getElementById("loadingText").textContent = loadingMessages[msgIndex];
+    }, 4000);
+
+    try {
+        const response = await fetch("/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ city: city })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            alert("Error: " + data.error);
+            return;
+        }
+
+        // populate metrics
+        document.getElementById("roadKm").textContent = data.total_road_km;
+        document.getElementById("buildingCount").textContent = data.building_count.toLocaleString();
+        document.getElementById("greenCover").textContent = data.green_cover_pct;
+        document.getElementById("riskScore").textContent = data.risk_score;
+        
+        const riskLabel = document.getElementById("riskLabel");
+        riskLabel.textContent = data.risk_label + " Risk";
+        riskLabel.className = "metric-unit risk-badge risk-" + data.risk_label;
+
+        // populate briefing
+        document.getElementById("briefingContent").innerHTML = 
+            data.ai_briefing.replace(/\n/g, "<br>");
+
+        // render phenology chart
+        if (data.phenology && data.phenology.length > 0) {
+            document.getElementById("phenologyBody").style.display = "grid";
+            document.getElementById("phenologyEmpty").style.display = "none";
+            setTimeout(() => renderPhenologyChart(data.phenology), 100);
+            // setTimeout delays chart render by 100ms
+            // gives the browser time to paint the visible canvas
+            // before Chart.js tries to measure its dimensions
+            // without this the canvas height = 0 and nothing renders
+        } else {
+            document.getElementById("phenologyBody").style.display = "none";
+            document.getElementById("phenologyEmpty").style.display = "block";
+        }
+
+        // load map
+        const historyRes = await fetch("/history");
+        const history = await historyRes.json();
+        if (history.length > 0) {
+            currentAnalysisId = history[0].id;
+            loadMap(currentAnalysisId);
+            updateHistoryTable(history);
+        }
+
+        document.getElementById("results").classList.add("active");
+
+    } catch (error) {
+        alert("Something went wrong: " + error.message);
+    } finally {
+        clearInterval(msgInterval);
+        document.getElementById("loading").classList.remove("active");
+        document.getElementById("analyzeBtn").disabled = false;
+    }
+}
+
+function renderPhenologyChart(phenologyData) {
+    // filter out months with null NDVI
+    const validData = phenologyData.filter(d => d.ndvi !== null);
+    
+    if (validData.length === 0) {
+        document.getElementById("phenologyBody").style.display = "none";
+        document.getElementById("phenologyEmpty").style.display = "block";
+        return;
+    }
+
+    const labels = validData.map(d => {
+        // format "2024-03" → "Mar 24" for cleaner display
+        const [year, month] = d.month.split('-');
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun',
+                           'Jul','Aug','Sep','Oct','Nov','Dec'];
+        return monthNames[parseInt(month) - 1] + " '" + year.slice(2);
+    });
+    
+    const values = validData.map(d => d.ndvi);
+
+    // destroy existing chart instance if re-running analysis
+    const existing = Chart.getChart("phenologyChart");
+    if (existing) existing.destroy();
+
+    const canvas = document.getElementById("phenologyChart");
+    canvas.style.width = "100%";
+    canvas.style.height = "240px";
+    const ctx = canvas.getContext("2d");
+
+    // color each point by NDVI value
+    // green = healthy vegetation, red = bare/urban
+    const pointColors = values.map(v => {
+        if (v > 0.4) return '#10b981';       // dense vegetation
+        if (v > 0.25) return '#f59e0b';      // moderate vegetation
+        if (v > 0.1) return '#f97316';       // sparse vegetation
+        return '#ef4444';                     // urban/bare
+    });
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Mean NDVI',
+                data: values,
+                borderColor: '#3b82f6',
+                // blue line connects the dots
+                backgroundColor: 'rgba(59,130,246,0.08)',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: pointColors,
+                // each point colored by its NDVI value
+                pointBorderColor: pointColors,
+                fill: true,
+                tension: 0.4
+                // tension=0.4 adds smooth curve
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+                // tooltip shows on hover for nearest point
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#111828',
+                    borderColor: '#1e2d45',
+                    borderWidth: 1,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#94a3b8',
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.parsed.y;
+                            let interpretation = '';
+                            if (val > 0.5) interpretation = 'Dense vegetation / peak crop';
+                            else if (val > 0.35) interpretation = 'Moderate vegetation / growing crop';
+                            else if (val > 0.2) interpretation = 'Sparse vegetation';
+                            else if (val > 0.05) interpretation = 'Very sparse / early growth';
+                            else interpretation = 'Urban / bare soil';
+                            return [`NDVI: ${val}`, interpretation];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { 
+                        color: '#64748b',
+                        font: { size: 11 },
+                        maxRotation: 45
+                    },
+                    grid: { color: 'rgba(255,255,255,0.04)' }
+                },
+                y: {
+                    min: -0.1,
+                    max: 0.8,
+                    ticks: {
+                        color: '#64748b',
+                        font: { size: 11 },
+                        callback: v => v.toFixed(1)
+                    },
+                    grid: { color: 'rgba(255,255,255,0.04)' },
+                    title: {
+                        display: true,
+                        text: 'NDVI',
+                        color: '#64748b',
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
+
+    // generate interpretation text from the data
+    interpretPhenology(validData);
+}
+
+function interpretPhenology(data) {
+    const values = data.map(d => d.ndvi);
+    const maxNDVI = Math.max(...values);
+    const minNDVI = Math.min(...values);
+    const range = maxNDVI - minNDVI;
+    const avgNDVI = values.reduce((a, b) => a + b, 0) / values.length;
+    
+    // find peak month
+    const peakIdx = values.indexOf(maxNDVI);
+    const peakMonth = data[peakIdx].month;
+    const [year, month] = peakMonth.split('-');
+    const monthNames = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+    const peakMonthName = monthNames[parseInt(month) - 1] + ' ' + year;
+
+    let interpretation = '';
+
+    if (range > 0.25) {
+        // strong seasonal pattern = agricultural
+        interpretation = `Strong seasonal NDVI pattern (range: ${range.toFixed(2)}) with peak in ${peakMonthName}. This signature indicates active agricultural land use — the curve shows crop planting, growth, and harvest cycles. This is the same signal SatSure Sage uses to detect kharif/rabi crop cycles and time loan collections.`;
+    } else if (range > 0.12) {
+        // moderate variation = mixed land use
+        interpretation = `Moderate seasonal variation (range: ${range.toFixed(2)}) peaking in ${peakMonthName}. Mixed urban-agricultural land use — some green space or seasonal vegetation alongside built-up area. Monsoon-season greening likely contributes to the peak.`;
+    } else if (avgNDVI < 0.15) {
+        // flat and low = dense urban
+        interpretation = `Flat, low NDVI profile (avg: ${avgNDVI.toFixed(2)}, range: ${range.toFixed(2)}). Predominantly urban or built-up corridor with minimal seasonal vegetation. Infrastructure development here faces higher displacement risk but lower environmental clearance complexity.`;
+    } else {
+        // flat and moderate = parks/maintained green
+        interpretation = `Relatively stable vegetation (avg: ${avgNDVI.toFixed(2)}, range: ${range.toFixed(2)}). Likely maintained urban green space — parks, tree-lined roads, or similar. Low seasonal variation suggests irrigated or perennial vegetation rather than rain-fed crops.`;
+    }
+
+    document.getElementById("phenologyInterpText").textContent = interpretation;
+}
+
+function loadMap(analysisId) {
+    document.getElementById("mapFrame").src = "/map/" + analysisId;
+}
+
+function updateHistoryTable(analyses) {
+    const container = document.getElementById("historyContainer");
+    
+    if (analyses.length === 0) {
+        container.innerHTML = '<div class="empty-state">No analyses yet</div>';
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>City</th>
+                    <th>Timestamp</th>
+                    <th>Road (km)</th>
+                    <th>Buildings</th>
+                    <th>Risk</th>
+                    <th>Map</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    analyses.forEach(a => {
+        html += `
+            <tr>
+                <td>${a.city}</td>
+                <td>${a.timestamp}</td>
+                <td>${a.total_road_km}</td>
+                <td>${a.building_count.toLocaleString()}</td>
+                <td>
+                    <span class="risk-badge risk-${a.risk_label}">
+                        ${a.risk_label}
+                    </span>
+                </td>
+                <td>
+                    <button class="view-btn" onclick="loadMap(${a.id})">
+                        View Map
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+document.getElementById("cityInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") runAnalysis();
+});
+</script>
+
+</body>
+</html>
